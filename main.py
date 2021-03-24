@@ -10,14 +10,18 @@
 import numpy as np
 import time
 import matplotlib.pyplot as plt
+from scipy.interpolate import griddata
 import Stokes_pre
 
 start = time.time()
 print('Start time: %s ' % time.ctime(start))
 # define the size of model, mesh unit, m
 # Domain
-input = 1  # input:        the shape of model
-xlen, ylen = 1000000.0, 400000.0      # m
+# input = 1  # input:        the shape of model
+# xlen, ylen = 1000000.0, 400000.0      # m
+
+input = 3  # input:        the shape of model
+xlen, ylen = 1070000.0, 400000.0      # m
 
 # define the mesh, mesh unit, m
 nx, ny = 31, 21
@@ -27,10 +31,10 @@ nx_m, ny_m = 4, 2
 
 # Velocity Boundary condition specified by BC_left,BC_right,BC_top,bbot
 # (1=free slip 0=no slip) are implemented from ghost nodes
-# No slip: vx[i,j]=0# Free slip dvx/dy=0: vx[i,j]-vx[i+1,j]=0
+# No slip: vx[i,j]=0 # Free slip dvx/dy=0: vx[i,j]-vx[i+1,j]=0
 # directly into Stokes and continuity equations
-BC_left = 0
-BC_right = 0
+BC_left = 1
+BC_right = 1
 BC_top = 0
 BC_bottom = 0
 # Pressure in the upermost, leftmost (first) cell
@@ -56,7 +60,17 @@ dx = xlen / (nx - 1)
 dy = ylen / (ny - 1)
 
 dt      = 1
-for time_step in range(1,2,1): # time step
+for time_step in range(3, 4, 1): # time step
+    if time_step == 1:
+        Strain_II = np.ones((ny_m * (ny - 1), nx_m * (nx - 1)))
+        Strain_II = Strain_II * 1e-18
+        np.save("Strain_II_m.npy", Strain_II)
+    Strain_II = np.load("Strain_II_m.npy",)
+    fig_outsii = plt.figure(figsize=(12, 12))
+    plt.suptitle('Time = ' + str(time_step), fontsize=16, fontweight='bold')
+    ax = fig_outsii.add_subplot(221)
+    plt.plot(Strain_II)
+
     t = dt * time_step
     # parameters for mesh
     rock = np.zeros((ny, nx))
@@ -443,7 +457,31 @@ for time_step in range(1,2,1): # time step
     # (3) visualization, Velocity, Viscosity, Density, Stress, Strain, Pressure, -Thermal parameters(T,Q,HF,K,k,cp,A and so on)
     # Result: vx1,vy1,velocity / center of mesh
     #   Unit transformation
+    # viscosity /Plotting viscosity: vx1, vy1, m/s
 
+    VunitType = 1
+    if VunitType == 0:
+        Scale = 1
+        Vlable = ' ${m}/{s}$'
+    if VunitType == 1:
+        Scale = 1 * 365.25 * 24 * 3600 * 100
+        Vlable = ' ${cm}/{y}$'
+
+    Vx = vx1 * Scale
+    Vy = vy1 * Scale
+    V = (Vx ** 2 +Vy ** 2) ** 0.5
+
+    x1 = np.arange(0.5 * dx, xlen, dx)
+    y1 = np.arange(0.5 * dy, ylen, dy)
+    xx, yy = np.meshgrid(x1, y1)
+    del x1, y1
+
+    m = 1
+    vx10, vy10 = vx1, vy1
+    del vx1, vy1
+    vx1 = vx10[0:ny:m, 0:nx:m]
+    vy1 = vy10[0:ny:m, 0:nx:m]
+    del vx10, vy10
 
     Stress_xx_d = np.zeros((ny-1, nx-1))
     Stress_yy_d = np.zeros((ny-1, nx-1))
@@ -478,10 +516,6 @@ for time_step in range(1,2,1): # time step
             Strain_II[j, i] = (0.5 * (Strain_xx_d[j, i] **2 + Strain_yy_d[j, i] **2 + Strain_xy[j, i] **2 + Strain_yx[j, i] **2)) ** 0.5
 
     ## vx1,vy1,viscosity,Density / nodes of mesh
-    x1 = np.arange(dx/2, xlen, dx)
-    y1 = np.arange(dy/2, ylen, dy)
-    xx, yy = np.meshgrid(x1, y1)
-    del x1, y1
 
     fig_out = plt.figure(figsize=(12, 12))
     plt.suptitle('Stress', fontsize=16, fontweight='bold')
@@ -522,7 +556,6 @@ for time_step in range(1,2,1): # time step
     print(error)
     # plt.plot(1,len(Strain_II.flatten()), '*')
 
-
     fig_out = plt.figure(figsize=(12, 12))
     plt.suptitle('Strain', fontsize=16, fontweight='bold')
     ax = fig_out.add_subplot(221); ax.axis([0, xlen / 1000, 0, ylen / 1000])
@@ -534,7 +567,54 @@ for time_step in range(1,2,1): # time step
     ax = fig_out.add_subplot(224); ax.axis([0, xlen / 1000, 0, ylen / 1000])
     Stokes_pre.Plot_fig(xx, yy, Strain_yx, ax, 'Strain_yx', 'Strain / $\mathregular{s^-1}$', 2)
 
-    # viscosity /Plotting viscosity
+    plt.close()
+    plt.close()
+    plt.close()
+    # viscosity /Plotting viscosity: vx1, vy1
+
+    Qkey = np.max(V) # Qkey = (np.max(Vx) ** 2 + np.max(Vy) ** 2) ** 0.5
+    fig_out = plt.figure(figsize=(12, 12))
+    plt.suptitle('Viscosity', fontsize=16, fontweight='bold')
+    # ax = fig_out.add_subplot(221); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+    # Stokes_pre.Plot_fig(xx, yy, V, ax, 'V', None, 3)
+    # Q = plt.quiver(xx / 1000, yy / 1000, Vx, -1 * Vy, units='xy', color='red')
+    # plt.quiverkey(Q, 0.8, -0.1, Qkey, str(Qkey) + Vlable, labelpos='E', color='red', coordinates='axes')
+
+    ax = fig_out.add_subplot(222); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+    Stokes_pre.Plot_fig(xx, yy, V, ax, 'V', 'V' + Vlable, 2)
+    # Stokes_pre.Plot_fig(xm, ym, np.log10(viscosity_m), ax, 'Viscosity', 'log$_{10}$η ($Pa·s$)', 2)
+    Q = plt.quiver(xx / 1000, yy / 1000, Vx, -1 * Vy, units='xy', color='red')
+    plt.quiverkey(Q, 0.8, -0.1, Qkey, str(Qkey) + Vlable, labelpos='E', color='red', coordinates='axes')
+
+    ax = fig_out.add_subplot(223); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+    Stokes_pre.Plot_fig(xx, yy, Vx, ax, 'Vx', 'Vx' + Vlable, 2)
+    Q = plt.quiver(xx / 1000, yy / 1000, Vx, -1 * Vy, units='xy', color='red')
+    plt.quiverkey(Q, 0.8, -0.1, Qkey, str(Qkey) + Vlable, labelpos='E', color='red', coordinates='axes')
+
+    ax = fig_out.add_subplot(224); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+    Stokes_pre.Plot_fig(xx, yy, Vy, ax, 'Vy', 'Vy' + Vlable, 2)
+    Q = plt.quiver(xx / 1000, yy / 1000, Vx, -1 * Vy, units='xy', color='red')
+    plt.quiverkey(Q, 0.8, -0.1, Qkey, str(Qkey) + Vlable, labelpos='E', color='red', coordinates='axes')
+
+    plt.close()
+
+    points = np.column_stack((xx.flatten(), yy.flatten()))
+    Strain_II_m = griddata(points, Strain_II.flatten(), (xm, ym), method='nearest')
+    for im in range(nx_m * (nx - 1)):
+        for jm in range(ny_m * (ny - 1)):
+            if Strain_II_m[jm, im] == 0:              # sticky air
+                Strain_II_m[jm, im] = 1e-18
+
+    # fig_out = plt.figure(figsize=(12, 12))
+    # plt.suptitle('Time = ' + str(time_step), fontsize=16, fontweight='bold')
+    ax = fig_outsii.add_subplot(222)
+    plt.plot(Strain_II_m)
+    ax = fig_outsii.add_subplot(223); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+    Stokes_pre.Plot_fig(xx, yy, Strain_II, ax, 'Strain_II', 'Strain / $\mathregular{s^-1}$', 2)
+    ax = fig_outsii.add_subplot(224); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+    Stokes_pre.Plot_fig(xm, ym, Strain_II_m, ax, 'Strain_II_m', 'Strain / $\mathregular{s^-1}$', 2)
+    np.save("Strain_II_m.npy", Strain_II_m)
 
 
 plt.show()
+
