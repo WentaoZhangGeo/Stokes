@@ -5,6 +5,7 @@ from scipy.interpolate import griddata
 def main(input, xlen, ylen, nx, ny ,nx_m, ny_m):
     fig_switch = 0  # Check out the fig, 1 is off, other is on
     PA = 200000 # vertical_slice
+    PB = 600000  # vertical_slice
 
     dx = xlen / (nx - 1)
     dy = ylen / (ny - 1)
@@ -66,9 +67,18 @@ def main(input, xlen, ylen, nx, ny ,nx_m, ny_m):
     legend = 'x=' + str(xm[1, im] / 1000) + ' km'
 
     fig_out = plt.figure(figsize=(8, 12))
-    ax = fig_out.add_subplot(221)
+    ax = fig_out.add_subplot(121)
     Plot_Slip(ym[:, im], np.log10(viscosity_m[:, im]), ax, 'viscosity profile', 'log$_{10}$Viscosity (Pa s)', legend)
+
+    im_find = abs(xm[1, :] - PB)
+    im = np.argmin(im_find)
+    legend = 'x=' + str(xm[1, im] / 1000) + ' km'
+    ax = fig_out.add_subplot(122)
+    Plot_Slip(ym[:, im], np.log10(viscosity_m[:, im]), ax, 'viscosity profile', 'log$_{10}$Viscosity (Pa s)', legend)
+
     plt.close()
+
+
     return rock_m, density_m, viscosity_m, mkk, mTT, nx_m, ny_m, xm, ym, nx, ny
 
 
