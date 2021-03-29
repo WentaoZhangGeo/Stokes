@@ -10,7 +10,11 @@ import matplotlib.pyplot as plt
 import time
 import Stokes_pre
 import Visualization as vis
-
+import os
+if os.path.exists("demofile.txt"):
+  os.remove("demofile.txt")
+else:
+  print("The file does not exist")
 
 class ModelSet:
     input = 3  # input:        the shape of model
@@ -54,8 +58,31 @@ cp = 1.0
 gx = 0
 gy = 9.8
 
-np.savez('Model_inf', input, xlen, ylen, nx, ny, nx_m, ny_m, dx, dy, dx_m, dy_m)
-(input, xlen, ylen, nx, ny, nx_m, ny_m, dx, dy, dx_m, dy_m) = Stokes_pre.class2str(Model)
+# define the centre of each mesh, mesh unit, m
+# x=[0.5dx 1.5dx 2.5dx ... (nx-0.5)dx], y=[...], nodes
+x1 = np.arange(0.5 * dx, xlen, dx)
+y1 = np.arange(0.5 * dy, ylen, dy)
+xx, yy = np.meshgrid(x1, y1)
+
+# define the markers
+# xm=[0.5dx_m 1.5dx_m ... (all-0.5)dx_m], y=[...], markers
+x2 = np.arange(0.5 * dx_m, xlen, dx_m)
+y2 = np.arange(0.5 * dy_m, ylen, dy_m)
+xm, ym = np.meshgrid(x2, y2)
+
+# define the nodes, mesh unit, m
+# x=[0 dx 2dx ... (nx-1)dx], y=[...], nodes
+x3 = np.arange(0, xlen + dx, dx)
+y3 = np.arange(0, ylen + dy, dy)
+x_n, y_n = np.meshgrid(x3, y3)
+del x1, y1, x2, y2, x3, y3
+
+np.savez('Model_inf', input=input,
+         xlen=xlen, ylen=ylen, nx=nx, ny=ny, nx_m=nx_m, ny_m=ny_m,
+         dx=dx, dy=dy, dx_m=dx_m, dy_m=dy_m,
+         xx=xx, yy=yy, xm=xm, ym=ym, x_n=x_n, y_n=y_n,
+         BC_left=BC_left, BC_right=BC_right, BC_top=BC_top, BC_bottom=BC_bottom,
+         prfirst=prfirst, cp=cp, gx=gx, gy=gy)
 
 ##############################################
 start = time.time()
@@ -66,7 +93,17 @@ print('  The number of markers in each mesh: %d × %d' % (nx_m, ny_m))
 
 ##  (1) First Pre-Processing
 print('Pre-Processing start')
-(xx, yy, xm, ym, x_n, y_n, rock_m, density_m, viscosity_m, mkk, mTT) = Stokes_pre.marker(Model)
+Stokes_pre.marker()
+
+Model_marker = np.load("Model_marker.npz")
+rock_m, density_m, viscosity_m, mkk, mTT = \
+    Model_marker['rock_m'], Model_marker['rock_m'], Model_marker['rock_m'], Model_marker['rock_m'], Model_marker['rock_m']
+rock_m = Model_marker['rock_m']
+density_m = Model_marker['density_m']
+viscosity_m = Model_marker['viscosity_m']
+mkk = Model_marker['mkk']
+mTT = Model_marker['mTT']
+
 print('Pre-Processing end')
 print('Pre-Processing total time: %f s \n' % (time.time() - start))
 
@@ -583,4 +620,4 @@ for time_step in range(1, 2, 1):  # time step
     # vis.plot_fig(xm, ym, Strain_II_D, ax, 'Strain_II_D', 'Strain / $\mathregular{s^-1}$', 2)
     # # plt.savefig('Time = ' + str(time_eta_cal) + '.png')
 
-plt.show()
+# plt.show()

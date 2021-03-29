@@ -4,37 +4,19 @@ from scipy.interpolate import griddata
 import Visualization as vis
 # import main
 
-def marker(Model):
+def marker():
     fig_switch = 0  # Check out the fig, 1 is off, other is on
     PA = 200000  # vertical_slice
     PB = 600000  # vertical_slice
 
-    # input = main.input
-    (input, xlen, ylen, nx, ny, nx_m, ny_m, dx, dy, dx_m, dy_m) = class2str(Model)
-
-    dx = xlen / (nx - 1)
-    dy = ylen / (ny - 1)
-    dx_m = dx / nx_m
-    dy_m = dy / ny_m
-
-    # define the centre of each mesh, mesh unit, m
-    # x=[0.5dx 1.5dx 2.5dx ... (nx-0.5)dx], y=[...], nodes
-    x1 = np.arange(0.5 * dx, xlen, dx)
-    y1 = np.arange(0.5 * dy, ylen, dy)
-    xx, yy = np.meshgrid(x1, y1)
-
-    # define the markers
-    # xm=[0.5dx_m 1.5dx_m ... (all-0.5)dx_m], y=[...], markers
-    x2 = np.arange(0.5 * dx_m, xlen, dx_m)
-    y2 = np.arange(0.5 * dy_m, ylen, dy_m)
-    xm, ym = np.meshgrid(x2, y2)
-
-    # define the nodes, mesh unit, m
-    # x=[0 dx 2dx ... (nx-1)dx], y=[...], nodes
-    x3 = np.arange(0, xlen + dx, dx)
-    y3 = np.arange(0, ylen + dy, dy)
-    x_n, y_n = np.meshgrid(x3, y3)
-    del x1, y1, x2, y2, x3, y3
+    Model_inf = np.load("Model_inf.npz")
+    input = Model_inf['input']
+    xlen, ylen, nx, ny, nx_m, ny_m = \
+        Model_inf['xlen'], Model_inf['ylen'], Model_inf['nx'], Model_inf['ny'], Model_inf['nx_m'], Model_inf['ny_m']
+    dx, dy, dx_m, dy_m = \
+        Model_inf['dx'], Model_inf['dy'], Model_inf['dx_m'], Model_inf['dy_m']
+    xx, yy, xm, ym, x_n, y_n = \
+        Model_inf['xx'], Model_inf['yy'], Model_inf['xm'], Model_inf['ym'], Model_inf['x_n'], Model_inf['y_n']
 
     if input == 1:
         (rock_m, density_m, viscosity_m, mkk, mTT) = input_parameters_box(nx, nx_m, ny, ny_m, xm, ym)
@@ -94,7 +76,9 @@ def marker(Model):
     if fig_switch == 0:
         plt.close()
 
-    return xx, yy, xm, ym, x_n, y_n, rock_m, density_m, viscosity_m, mkk, mTT
+    np.savez('Model_marker', rock_m=rock_m,
+             density_m=density_m, viscosity_m=viscosity_m,
+             mkk=mkk, mTT=mTT)
 
 
 def class2str(Model):
@@ -146,19 +130,19 @@ def input_parameters_LitMod(nx, nx_m, ny, ny_m, xm, ym):
     mkk = np.ones((ny_m * (ny - 1), nx_m * (nx - 1)))
     mTT = np.zeros((ny_m * (ny - 1), nx_m * (nx - 1)))
 
-    file = '/home/ictja/PycharmProjects/dens_node2.dat'
+    file = '/home/wentao/PycharmProjects/dens_node2.dat'
     data = np.loadtxt(file)
     points = np.column_stack((data[:, 0], -1 * data[:, 1])) * 1000
     density_m = griddata(points, data[:, 2], (xm, ym), method='nearest')
     del data, points
 
-    file = '/home/ictja/PycharmProjects/tempout.dat'
+    file = '/home/wentao/PycharmProjects/tempout.dat'
     data = np.loadtxt(file)
     points = np.column_stack((data[:, 0], -1 * data[:, 1])) * 1000
     mTT = griddata(points, data[:, 2], (xm, ym), method='nearest')
     del data, points
 
-    file = '/home/ictja/PycharmProjects/post_processing_output.dat'
+    file = '/home/wentao/PycharmProjects/post_processing_output.dat'
     data = np.loadtxt(file)
     points = np.column_stack((data[:, 0], -1 * data[:, 1])) * 1000
     rock_m = griddata(points, data[:, 7], (xm, ym), method='nearest')
@@ -179,7 +163,6 @@ def input_parameters_LitMod(nx, nx_m, ny, ny_m, xm, ym):
             elif 91 < rock_m[jm, im] <= 100:  # Sub_mantle
                 rock_m[jm, im] = 3
                 viscosity_m[jm, im] = Rheology_HK03(Pressure[jm, im], mTT[jm, im], Strain_II[jm, im])
-
     return rock_m, density_m, viscosity_m, mkk, mTT
 
 
