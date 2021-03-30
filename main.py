@@ -7,30 +7,16 @@
 #########################################################################
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.interpolate import griddata
 import time
 import Stokes_pre
 import Visualization as vis
 import os
+
 if os.path.exists("demofile.txt"):
-  os.remove("demofile.txt")
+    os.remove("demofile.txt")
 else:
-  print("The file does not exist")
-
-class ModelSet:
-    input = 3  # input:        the shape of model
-    # define the size of model, mesh unit, m
-    xlen, ylen = 1070000.0, 400000.0  # m
-    # define the mesh, mesh unit, m
-    nx, ny = 31, 21
-    # define the markers
-    nx_m, ny_m = 4, 2
-
-    dx = xlen / (nx - 1)
-    dy = ylen / (ny - 1)
-    dx_m = dx / nx_m
-    dy_m = dy / ny_m
-
-Model = ModelSet()
+    print("The file does not exist")
 
 input = 3  # input:        the shape of model
 # define the size of model, mesh unit, m
@@ -58,6 +44,8 @@ cp = 1.0
 gx = 0
 gy = 9.8
 
+Model_inf = 'Model_inf.npz'
+Model_result = 'Model_result.npz'
 # define the centre of each mesh, mesh unit, m
 # x=[0.5dx 1.5dx 2.5dx ... (nx-0.5)dx], y=[...], nodes
 x1 = np.arange(0.5 * dx, xlen, dx)
@@ -77,7 +65,7 @@ y3 = np.arange(0, ylen + dy, dy)
 x_n, y_n = np.meshgrid(x3, y3)
 del x1, y1, x2, y2, x3, y3
 
-np.savez('Model_inf', input=input,
+np.savez(Model_inf, input=input,
          xlen=xlen, ylen=ylen, nx=nx, ny=ny, nx_m=nx_m, ny_m=ny_m,
          dx=dx, dy=dy, dx_m=dx_m, dy_m=dy_m,
          xx=xx, yy=yy, xm=xm, ym=ym, x_n=x_n, y_n=y_n,
@@ -92,44 +80,48 @@ print('  The number of nodes: %d × %d' % (nx, ny))
 print('  The number of markers in each mesh: %d × %d' % (nx_m, ny_m))
 
 ##  (1) First Pre-Processing
-print('Pre-Processing start')
-Stokes_pre.marker()
+# print('Pre-Processing start')
+# outfile_m = Stokes_pre.marker(Model_inf)
+# npzf = np.load(outfile_m)
+# rock_m, density_m, viscosity_m, mkk, mTT = \
+#     npzf['rock_m'], npzf['density_m'], \
+#     npzf['viscosity_m'], npzf['mkk'], npzf['mTT']
 
-Model_marker = np.load("Model_marker.npz")
-rock_m, density_m, viscosity_m, mkk, mTT = \
-    Model_marker['rock_m'], Model_marker['rock_m'], Model_marker['rock_m'], Model_marker['rock_m'], Model_marker['rock_m']
-rock_m = Model_marker['rock_m']
-density_m = Model_marker['density_m']
-viscosity_m = Model_marker['viscosity_m']
-mkk = Model_marker['mkk']
-mTT = Model_marker['mTT']
-
-print('Pre-Processing end')
-print('Pre-Processing total time: %f s \n' % (time.time() - start))
+# print('Pre-Processing end')
+# print('Pre-Processing total time: %f s \n' % (time.time() - start))
 
 ##  (2) Main
 print('Stokes start')
 print('  Computing: 0%')
 Stokesstart = time.time()
 
-dt = 1
-for time_step in range(1, 2, 1):  # time step
+dt = 10.0
+# for time_step in range(1, 2, 1):  # time step
+for iteration in range(1, 10, 1):  # Number of iterations
 
-    t = dt * time_step
+    t = dt
     # parameters for nodes
-    (rock, density, viscosity, kk, TT) = Stokes_pre.marker2node(Model, xm, ym, rock_m, density_m, viscosity_m, mkk, mTT)
+    if iteration == 1:
+        Strain_II_m = np.ones((ny_m * (ny - 1), nx_m * (nx - 1)))
+        np.save("Strain_II_m.npy", Strain_II_m)
+
+    outfile_m = Stokes_pre.marker(Model_inf)
+    npzf = np.load(outfile_m)
+    rock_m, density_m, viscosity_m, mkk, mTT = \
+        npzf['rock_m'], npzf['density_m'], \
+        npzf['viscosity_m'], npzf['mkk'], npzf['mTT']
+
+    outfile_n = Stokes_pre.marker2node(Model_inf, outfile_m)
+    npzf = np.load(outfile_n)
+    rock, density, viscosity, kk, TT = \
+        npzf['rock'], npzf['density'], \
+        npzf['viscosity'], npzf['kk'], npzf['TT']
 
     L = np.zeros((nx * ny * 3, nx * ny * 3))
     R = np.zeros((nx * ny * 3, 1))
 
-    Pscale = viscosity[0, 0] / (dx / 2 + dy / 2)
-
-    L = np.zeros((nx * ny * 3, nx * ny * 3))
-    R = np.zeros((nx * ny * 3, 1))
-
-    gx = 0
-    gy = 9.8
-    Pscale = viscosity[0, 0] / (dx / 2 + dy / 2)
+    # Pscale = viscosity[0,0] / (dx / 2 + dy / 2)
+    Pscale = viscosity.max() / (dx / 2 + dy / 2)
 
     for i in range(nx):
         for j in range(ny):
@@ -518,35 +510,6 @@ for time_step in range(1, 2, 1):  # time step
     vis.plot_fig(xx, yy, Stress_yx, ax, 'Stress_yx', 'Stress_yx / Pa', 2)
 
     fig_out = plt.figure(figsize=(12, 12))
-    plt.suptitle('Strain_II', fontsize=16, fontweight='bold')
-    ax = fig_out.add_subplot(221);
-    ax.axis([0, xlen / 1000, 0, ylen / 1000])
-    vis.plot_fig(xx, yy, Strain_II, ax, 'Strain_II', 'Strain / $\mathregular{s^-1}$', 2)
-
-    fig_out.add_subplot(222)
-    plt.plot(Strain_II.flatten(), '.')
-    avg = sum(Strain_II.flatten()) / len(Strain_II.flatten())
-    print(avg)
-
-    sii0 = 1e-15
-    # sii0 = 7.8e-16
-
-    # plt.plot(Strain_II.flatten() - sii0, '.')
-    line = np.zeros((2, 2))
-    line[0, 0] = 0
-    line[0, 1] = len(Strain_II.flatten())
-    line[1, 0] = sii0
-    line[1, 1] = sii0
-    plt.plot(line[0, :], line[1, :], '-')
-    ax = plt.gca()
-    ax.set_title('Strain_II distribution map')
-    ax.set_xlabel('Point')
-    ax.set_ylabel('Strain / $\mathregular{s^-1}$')
-    error = (sum((Strain_II.flatten() - sii0) ** 2)) ** 0.5 / len(Strain_II.flatten())
-    print(error)
-    # plt.plot(1,len(Strain_II.flatten()), '*')
-
-    fig_out = plt.figure(figsize=(12, 12))
     plt.suptitle('Strain', fontsize=16, fontweight='bold')
     ax = fig_out.add_subplot(221);
     ax.axis([0, xlen / 1000, 0, ylen / 1000])
@@ -561,9 +524,8 @@ for time_step in range(1, 2, 1):  # time step
     ax.axis([0, xlen / 1000, 0, ylen / 1000])
     vis.plot_fig(xx, yy, Strain_yx, ax, 'Strain_yx', 'Strain / $\mathregular{s^-1}$', 2)
 
-    # plt.close()
-    # plt.close()
-    # plt.close()
+    plt.close()
+    plt.close()
     # viscosity /Plotting viscosity: vx1, vy1
 
     Qkey = np.max(V)  # Qkey = (np.max(Vx) ** 2 + np.max(Vy) ** 2) ** 0.5
@@ -593,15 +555,36 @@ for time_step in range(1, 2, 1):  # time step
     Q = plt.quiver(xx / 1000, yy / 1000, Vx, -1 * Vy, units='xy', color='red')
     plt.quiverkey(Q, 0.8, -0.1, Qkey, str(Qkey) + Vlable, labelpos='E', color='red', coordinates='axes')
 
-    # plt.close()
+    plt.close()
 
-    # points = np.column_stack((xx.flatten(), yy.flatten()))
-    # Strain_II_m = griddata(points, Strain_II.flatten(), (xm, ym), method='nearest')
-    # for im in range(nx_m * (nx - 1)):
-    #     for jm in range(ny_m * (ny - 1)):
-    #         if Strain_II_m[jm, im] == 0:              # sticky air
-    #             Strain_II_m[jm, im] = 1e-18
 
+    fig_out = plt.figure(figsize=(12, 12))
+    plt.suptitle('Time = ' + str(iteration), fontsize=16, fontweight='bold')
+    ax = fig_out.add_subplot(221);
+    ax.axis([0, xlen / 1000, 0, ylen / 1000])
+    vis.plot_fig(xm, ym, Strain_II_m, ax, 'Strain_II pre', 'Strain / $\mathregular{s^-1}$', 2)
+
+    points = np.column_stack((xx.flatten(), yy.flatten()))
+    Strain_II_m_new = griddata(points, Strain_II.flatten(), (xm, ym), method='nearest')
+    ax = fig_out.add_subplot(223);
+    ax.axis([0, xlen / 1000, 0, ylen / 1000])
+    vis.plot_fig(xm, ym, Strain_II_m_new, ax, 'Strain_II after', 'Strain / $\mathregular{s^-1}$', 2)
+
+    Strain_II_D = (Strain_II_m_new - Strain_II_m)
+    fig_out.add_subplot(222)
+    plt.plot(Strain_II_D.flatten(), '.')
+    # plt.plot(Strain_II_m.flatten(), '.')
+    ax = plt.gca()
+    ax.set_title('Error distribution map')
+    ax.set_xlabel('Point')
+    ax.set_ylabel('Strain / $\mathregular{s^-1}$')
+
+    arr_std = np.sum(Strain_II_D ** 2)
+    fig_out.add_subplot(224)
+    plt.plot(iteration, arr_std, '.')
+
+
+    # plt.plot(1,len(Strain_II.flatten()), '*')
     # fig_out = plt.figure(figsize=(12, 12))
     # plt.suptitle('Time = ' + str(time_eta_cal), fontsize=16, fontweight='bold')
     # ax = fig_outsii.add_subplot(232)
@@ -620,4 +603,14 @@ for time_step in range(1, 2, 1):  # time step
     # vis.plot_fig(xm, ym, Strain_II_D, ax, 'Strain_II_D', 'Strain / $\mathregular{s^-1}$', 2)
     # # plt.savefig('Time = ' + str(time_eta_cal) + '.png')
 
-# plt.show()
+    np.save("Strain_II_m.npy", Strain_II_m_new)
+
+# np.savez(Model_result, input=input,
+#          xlen=xlen, ylen=ylen, nx=nx, ny=ny, nx_m=nx_m, ny_m=ny_m,
+#          dx=dx, dy=dy, dx_m=dx_m, dy_m=dy_m,
+#          xx=xx, yy=yy, xm=xm, ym=ym, x_n=x_n, y_n=y_n,
+#          BC_left=BC_left, BC_right=BC_right, BC_top=BC_top, BC_bottom=BC_bottom,
+#          prfirst=prfirst, cp=cp, gx=gx,
+#          gy=gy)
+
+    plt.show()

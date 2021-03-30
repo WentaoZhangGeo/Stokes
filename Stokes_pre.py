@@ -4,12 +4,13 @@ from scipy.interpolate import griddata
 import Visualization as vis
 # import main
 
-def marker():
+def marker(Model_inf):
     fig_switch = 0  # Check out the fig, 1 is off, other is on
     PA = 200000  # vertical_slice
     PB = 600000  # vertical_slice
-
-    Model_inf = np.load("Model_inf.npz")
+    outfile = 'Model_marker.npz'
+    global xx, yy, xm, ym, x_n, y_n
+    Model_inf = np.load(Model_inf)
     input = Model_inf['input']
     xlen, ylen, nx, ny, nx_m, ny_m = \
         Model_inf['xlen'], Model_inf['ylen'], Model_inf['nx'], Model_inf['ny'], Model_inf['nx_m'], Model_inf['ny_m']
@@ -76,10 +77,10 @@ def marker():
     if fig_switch == 0:
         plt.close()
 
-    np.savez('Model_marker', rock_m=rock_m,
+    np.savez(outfile, rock_m=rock_m,
              density_m=density_m, viscosity_m=viscosity_m,
              mkk=mkk, mTT=mTT)
-
+    return outfile
 
 def class2str(Model):
     input = Model.input
@@ -130,19 +131,19 @@ def input_parameters_LitMod(nx, nx_m, ny, ny_m, xm, ym):
     mkk = np.ones((ny_m * (ny - 1), nx_m * (nx - 1)))
     mTT = np.zeros((ny_m * (ny - 1), nx_m * (nx - 1)))
 
-    file = '/home/wentao/PycharmProjects/dens_node2.dat'
+    file = '/home/ictja/PycharmProjects/dens_node2.dat'
     data = np.loadtxt(file)
     points = np.column_stack((data[:, 0], -1 * data[:, 1])) * 1000
     density_m = griddata(points, data[:, 2], (xm, ym), method='nearest')
     del data, points
 
-    file = '/home/wentao/PycharmProjects/tempout.dat'
+    file = '/home/ictja/PycharmProjects/tempout.dat'
     data = np.loadtxt(file)
     points = np.column_stack((data[:, 0], -1 * data[:, 1])) * 1000
     mTT = griddata(points, data[:, 2], (xm, ym), method='nearest')
     del data, points
 
-    file = '/home/wentao/PycharmProjects/post_processing_output.dat'
+    file = '/home/ictja/PycharmProjects/post_processing_output.dat'
     data = np.loadtxt(file)
     points = np.column_stack((data[:, 0], -1 * data[:, 1])) * 1000
     rock_m = griddata(points, data[:, 7], (xm, ym), method='nearest')
@@ -166,15 +167,30 @@ def input_parameters_LitMod(nx, nx_m, ny, ny_m, xm, ym):
     return rock_m, density_m, viscosity_m, mkk, mTT
 
 
-def marker2node(Model, xm, ym, rock_m, density_m, viscosity_m, mkk, mTT):
+def marker2node(Model_inf, outfile_m):
+    outfile_n = 'Model_node.npz'
 
-    (input, xlen, ylen, nx, ny, nx_m, ny_m, dx, dy, dx_m, dy_m) = class2str(Model)
+    Model_inf = np.load(Model_inf)
+    input = Model_inf['input']
+    xlen, ylen, nx, ny, nx_m, ny_m = \
+        Model_inf['xlen'], Model_inf['ylen'], Model_inf['nx'], Model_inf['ny'], Model_inf['nx_m'], Model_inf['ny_m']
+    dx, dy, dx_m, dy_m = \
+        Model_inf['dx'], Model_inf['dy'], Model_inf['dx_m'], Model_inf['dy_m']
+    xx, yy, xm, ym, x_n, y_n = \
+        Model_inf['xx'], Model_inf['yy'], Model_inf['xm'], Model_inf['ym'], Model_inf['x_n'], Model_inf['y_n']
+
+    npzf = np.load(outfile_m)
+    rock_m, density_m, viscosity_m, mkk, mTT = \
+        npzf['rock_m'], npzf['density_m'], \
+        npzf['viscosity_m'], npzf['mkk'], npzf['mTT']
+
     rock = np.zeros((ny, nx))
     density = np.zeros((ny, nx))
     viscosity = np.zeros((ny, nx))
     kk = np.zeros((ny, nx))
     TT = np.zeros((ny, nx))
     weight = np.zeros((ny, nx))
+
     for im in range(nx_m * (nx - 1)):
         for jm in range(ny_m * (ny - 1)):
             i = int(xm[jm, im] / dx)
@@ -225,7 +241,10 @@ def marker2node(Model, xm, ym, rock_m, density_m, viscosity_m, mkk, mTT):
                 viscosity[j, i] = viscosity[j, i] / weight[j, i]
                 kk[j, i] = kk[j, i] / weight[j, i]
                 TT[j, i] = TT[j, i] / weight[j, i]
-    return rock, density, viscosity, kk, TT
+
+    np.savez(outfile_n, rock=rock, density=density, viscosity=viscosity, kk=kk, TT=TT)
+
+    return outfile_n
 
 
 def Rheology_HK03(P, T, Strain_II):
