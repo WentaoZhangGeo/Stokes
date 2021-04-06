@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
 
-def main(input, xlen, ylen, nx, ny ,nx_m, ny_m):
+def main(input, xlen, ylen, nx, ny ,nx_m, ny_m, LitMod_file):
     fig_switch = 0  # Check out the fig, 1 is off, other is on
     PA = 200000 # vertical_slice
     PB = 600000  # vertical_slice
@@ -12,19 +12,24 @@ def main(input, xlen, ylen, nx, ny ,nx_m, ny_m):
     dx_m = dx / nx_m
     dy_m = dy / ny_m
 
-    # define the mesh, mesh unit, m
-    # x=[0 dx 2dx ... (nx-1)dx], y=[...], nodes
-    x1 = np.arange(0, xlen + dx, dx)
-    y1 = np.arange(0, ylen + dy, dy)
-    x, y = np.meshgrid(x1, y1)
-    del x1, y1
+    # define the centre of each mesh, mesh unit, m
+    # x=[0.5dx 1.5dx 2.5dx ... (nx-0.5)dx], y=[...], nodes
+    x1 = np.arange(0.5 * dx, xlen, dx)
+    y1 = np.arange(0.5 * dy, ylen, dy)
+    xx, yy = np.meshgrid(x1, y1)
 
     # define the markers
     # xm=[0.5dx_m 1.5dx_m ... (all-0.5)dx_m], y=[...], markers
-    x1 = np.arange(0.5 * dx_m, xlen, dx_m)
-    y1 = np.arange(0.5 * dy_m, ylen, dy_m)
-    xm, ym = np.meshgrid(x1, y1)
-    del x1, y1
+    x2 = np.arange(0.5 * dx_m, xlen, dx_m)
+    y2 = np.arange(0.5 * dy_m, ylen, dy_m)
+    xm, ym = np.meshgrid(x2, y2)
+
+    # define the nodes, mesh unit, m
+    # x=[0 dx 2dx ... (nx-1)dx], y=[...], nodes
+    x3 = np.arange(0, xlen + dx, dx)
+    y3 = np.arange(0, ylen + dy, dy)
+    x_n, y_n = np.meshgrid(x3, y3)
+    del x1, y1, x2, y2, x3, y3
 
     # input parameters for makers
     cp = 1.0
@@ -34,14 +39,14 @@ def main(input, xlen, ylen, nx, ny ,nx_m, ny_m):
     # if input == 2:
     #     (rock_m, density_m, viscosity_m, mkk, mTT) = input_parameters_Fun(nx, nx_m, ny, ny_m, xm, ym, dx_m, dy_m)
     if input == 3:
-        (rock_m, density_m, viscosity_m, mkk, mTT) = input_parameters_LitMod(nx, nx_m, ny, ny_m, xm, ym)
+        (rock_m, density_m, viscosity_m, mkk, mTT) = input_parameters_LitMod(nx, nx_m, ny, ny_m, xm, ym, LitMod_file)
     # if input == 4:
     #     (rock_m, density_m, viscosity_m, mkk, mTT) = input_parameters_circle(nx, nx_m, ny, ny_m, xm, ym)
 
     fig_out = plt.figure(figsize=(16, 12))
     # meshes
     ax = fig_out.add_subplot(231); ax.axis([0, xlen / 1000, 0, ylen / 1000])
-    Plot_fig(x, y, 'No', ax, 'Grid: ' + str(nx-1) + ' × ' + str(ny-1), None, 1)
+    Plot_fig(xx, yy, 'No', ax, 'Grid: ' + str(nx-1) + ' × ' + str(ny-1), None, 1)
 
     ax = fig_out.add_subplot(232); ax.axis([0, xlen / 1000, 0, ylen / 1000])
     Plot_fig(xm, ym, density_m, ax, 'Density', 'ρ (kg/$\mathregular{m^3}$)', 2)
@@ -79,7 +84,7 @@ def main(input, xlen, ylen, nx, ny ,nx_m, ny_m):
     plt.close()
 
 
-    return rock_m, density_m, viscosity_m, mkk, mTT, nx_m, ny_m, xm, ym, nx, ny
+    return rock_m, density_m, viscosity_m, mkk, mTT, dx, dy, dx_m, dy_m, xx, yy, xm, ym, x_n, y_n
 
 
 def input_parameters_box(nx, nx_m, ny, ny_m, xm, ym):  # input=1
@@ -107,7 +112,7 @@ def input_parameters_box(nx, nx_m, ny, ny_m, xm, ym):  # input=1
 
     return rock_m, density_m, viscosity_m, mkk, mTT
 
-def input_parameters_LitMod(nx, nx_m, ny, ny_m, xm, ym):
+def input_parameters_LitMod(nx, nx_m, ny, ny_m, xm, ym, LitMod_file):
     print('  The shape of model: LitMod2D_2.0' )
     rock_m      = np.zeros((ny_m * (ny - 1), nx_m * (nx - 1)))
     density_m   = np.zeros((ny_m * (ny - 1), nx_m * (nx - 1)))
@@ -115,19 +120,19 @@ def input_parameters_LitMod(nx, nx_m, ny, ny_m, xm, ym):
     mkk         = np.ones((ny_m * (ny - 1), nx_m * (nx - 1)))
     mTT         = np.zeros((ny_m * (ny - 1), nx_m * (nx - 1)))
 
-    file = '/home/wentao/PycharmProjects/dens_node2.dat'
+    file = LitMod_file + '/dens_node2.dat'
     data = np.loadtxt(file)
     points = np.column_stack((data[:, 0], -1 * data[:, 1])) * 1000
     density_m = griddata(points, data[:, 2], (xm, ym), method='nearest')
     del data, points
 
-    file = '/home/wentao/PycharmProjects/tempout.dat'
+    file = LitMod_file + '/tempout.dat'
     data = np.loadtxt(file)
     points = np.column_stack((data[:, 0], -1 * data[:, 1])) * 1000
     mTT = griddata(points, data[:, 2], (xm, ym), method='nearest')
     del data, points
 
-    file = '/home/wentao/PycharmProjects/post_processing_output.dat'
+    file = LitMod_file + '/post_processing_output.dat'
     data = np.loadtxt(file)
     points = np.column_stack((data[:, 0], -1 * data[:, 1])) * 1000
     rock_m = griddata(points, data[:, 7], (xm, ym), method='nearest')

@@ -1,38 +1,37 @@
 #!/usr/bin/python3.8
 #########################################################################
 # This code consists of subroutines to solve 2D Stokes equation.        #
-#=======================================================================#
+# =======================================================================#
 # Author: Wentao Zhang, wzhang@geo3bcn.csic.es                          #
 # Created 09/03/2021                                                    #
 #########################################################################
 
-# Stokes equation
 import numpy as np
 import time
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
 import Stokes_pre
+import os
+os.system('rm *.npz *.npy *.png')
 
 start = time.time()
 print('Start time: %s ' % time.ctime(start))
+Model_inf = 'Model_inf'
+Model_result = 'Model_result'
 # define the size of model, mesh unit, m
 # Domain
 # input = 1  # input:        the shape of model
 # xlen, ylen = 1000000.0, 400000.0      # m
 
 input = 3  # input:        the shape of model
-xlen, ylen = 1070000.0, 400000.0      # m
+LitMod_file = 'Model_in'
+xlen, ylen = 1070000.0, 400000.0  # m
 
 # define the mesh, mesh unit, m
-nx, ny = 101, 41
+nx, ny = 51, 21
 
 # define the markers
-nx_m, ny_m = 4, 2
-
-dx = xlen / (nx - 1)
-dy = ylen / (ny - 1)
-dx_m = dx / nx_m
-dy_m = dy / ny_m
+nx_m, ny_m = 4, 4
 
 # Velocity Boundary condition specified by BC_left,BC_right,BC_top,bbot
 # (1=free slip 0=no slip) are implemented from ghost nodes
@@ -42,65 +41,67 @@ BC_left = 1
 BC_right = 1
 BC_top = 0
 BC_bottom = 0
-# Pressure in the upermost, leftmost (first) cell
+# Pressure in the uppermost, leftmost (first) cell
 prfirst = 0.0
 cp = 1.0
+gx = 0
+gy = 9.8
 
-print('  The length of model: %0.2f km' % (xlen/1000))
-print('  The depth of model: %0.2f km' % (ylen/1000))
-print('  The number of nodes: %d × %d' % (nx, ny))
-print('  The number of markers in each mesh: %d × %d' % (nx_m, ny_m))
+print('  The length of model: %0.2f km' % (xlen / 1000))
+print('  The depth of model: %0.2f km' % (ylen / 1000))
+print('  The number of nodes: %d, %d' % (nx, ny))
+print('  The number of markers in each mesh: %d, %d' % (nx_m, ny_m))
 
 # First Pre-Processing
-print('Pre-Processing start' )
-
-# time_eta_cal = 8
-# if time_eta_cal == 1:
-#     Strain_II_m_pre = np.ones((ny_m * (ny - 1), nx_m * (nx - 1)))
-#     Strain_II_m_pre = Strain_II_m_pre * 1e-15
-#     np.save("Strain_II_m.npy", Strain_II_m_pre)
-# Strain_II_m_pre = np.load("Strain_II_m.npy", )
-# fig_outsii = plt.figure(figsize=(18, 12))
-# plt.suptitle('Time = ' + str(time_eta_cal), fontsize=16, fontweight='bold')
-# ax = fig_outsii.add_subplot(231)
-# plt.plot(Strain_II_m_pre, '.')
-# ax = fig_outsii.add_subplot(234); ax.axis([0, xlen / 1000, 0, ylen / 1000])
-# x1 = np.arange(0.5 * dx_m, xlen, dx_m)
-# y1 = np.arange(0.5 * dy_m, ylen, dy_m)
-# xm, ym = np.meshgrid(x1, y1)
-# del x1, y1
-# Stokes_pre.Plot_fig(xm, ym, Strain_II_m_pre, ax, 'Strain_II_m_pre', 'Strain / $\mathregular{s^-1}$', 2)
+print('Pre-Processing start')
 
 # Setting Initial Strain_II for calculating viscosity
-IterationNumber = 0
-MaxIterationNumber = 100
+MaxIterationNumber = 3
+MaxTimeStep = 1
+Sii0 = 1e-15
 Deviation = []
-Strain_II_m_pre = np.ones((ny_m * (ny - 1), nx_m * (nx - 1))) * 1e-15
+
+if input != 3:
+    MaxIterationNumber = 1
+
+Strain_II_m_pre = np.ones((ny_m * (ny - 1), nx_m * (nx - 1))) * Sii0
 np.save("Strain_II_m.npy", Strain_II_m_pre)
 
-(rock_m, density_m, viscosity_m, mkk, mTT, nx_m, ny_m, xm, ym, nx, ny) = Stokes_pre.main(input, xlen, ylen, nx, ny ,nx_m, ny_m)
-print('Pre-Processing end' )
-print('Pre-Processing total time: %f s \n' % (time.time()-start))
-
-
+# (rock_m, density_m, viscosity_m, mkk, mTT, dx, dy, dx_m, dy_m, xx, yy, xm, ym, x_n, y_n) = \
+#     Stokes_pre.main(input, xlen, ylen, nx, ny, nx_m, ny_m, LitMod_file)
+# print('Pre-Processing end')
+# print('Pre-Processing total time: %f s \n' % (time.time() - start))
 
 ##  (2) Main
-print('Stokes start' )
-print('  Computing: 0%' )
-Stokesstart   = time.time()
+print('Stokes start')
+Stokesstart = time.time()
 
+dt = 1
+for TimeStep in range(MaxTimeStep):  # time step
+    t = dt * (TimeStep + 1)
+    IterationNumber = 0
 
-dt      = 1
-for time_step in range(1, 2, 1):  # time step
     while IterationNumber < MaxIterationNumber:
-        Strain_II_m_pre = np.load("Strain_II_m.npy")
-        t = dt * time_step
+        # for IterationNumber in range(MaxIterationNumber):
         IterationNumber += 1
 
-        (rock_m, density_m, viscosity_m, mkk, mTT, nx_m, ny_m, xm, ym, nx, ny) = Stokes_pre.main(input, xlen, ylen, nx,
-                                                                                                 ny, nx_m, ny_m)
+        print('  Iteration Number is %d ' % IterationNumber)
+        Strain_II_m_pre = np.load("Strain_II_m.npy")
 
-        # parameters for mesh
+        if TimeStep == 0:
+            (rock_m, density_m, viscosity_m, mkk, mTT, dx, dy, dx_m, dy_m, xx, yy, xm, ym, x_n, y_n) = \
+                Stokes_pre.main(input, xlen, ylen, nx, ny, nx_m, ny_m, LitMod_file)
+
+            np.savez(Model_inf, input=input,
+                     xlen=xlen, ylen=ylen, nx=nx, ny=ny, nx_m=nx_m, ny_m=ny_m,
+                     dx=dx, dy=dy, dx_m=dx_m, dy_m=dy_m,
+                     xx=xx, yy=yy, xm=xm, ym=ym, x_n=x_n, y_n=y_n,
+                     BC_left=BC_left, BC_right=BC_right, BC_top=BC_top, BC_bottom=BC_bottom,
+                     prfirst=prfirst, cp=cp, gx=gx, gy=gy)
+        else:
+            IterationNumber = MaxIterationNumber + 1  # Only calculating once, when TimeStep > 0
+
+        # parameters for nodes
         rock = np.zeros((ny, nx))
         density = np.zeros((ny, nx))
         viscosity = np.zeros((ny, nx))
@@ -158,12 +159,9 @@ for time_step in range(1, 2, 1):  # time step
                     kk[j, i] = kk[j, i] / weight[j, i]
                     TT[j, i] = TT[j, i] / weight[j, i]
 
-
         L = np.zeros((nx * ny * 3, nx * ny * 3))
         R = np.zeros((nx * ny * 3, 1))
 
-        gx = 0
-        gy = 9.8
         Pscale = viscosity[0, 0] / (dx / 2 + dy / 2)
 
         L = np.zeros((nx * ny * 3, nx * ny * 3))
@@ -203,10 +201,10 @@ for time_step in range(1, 2, 1):  # time step
                 else:  # internal node
 
                     L[ivx, ivx] = -viscosity[j + 1, i] / (dy * dy) - viscosity[j, i] / (dy * dy) - (
-                                viscosity[j, i] + viscosity[j + 1, i] + viscosity[j, i + 1] + viscosity[j + 1, i + 1]) / (
-                                              2 * dx * dx) - (
-                                              viscosity[j, i] + viscosity[j + 1, i] + viscosity[j, i - 1] + viscosity[
-                                          j + 1, i - 1]) / (2 * dx * dx)
+                            viscosity[j, i] + viscosity[j + 1, i] + viscosity[j, i + 1] + viscosity[j + 1, i + 1]) / (
+                                          2 * dx * dx) - (
+                                          viscosity[j, i] + viscosity[j + 1, i] + viscosity[j, i - 1] + viscosity[
+                                      j + 1, i - 1]) / (2 * dx * dx)
                     L[ivx, ivx + 3] = viscosity[j + 1, i] / (dy * dy)
                     L[ivx, ivx - 3] = viscosity[j, i] / (dy * dy)
                     L[ivx, ivx + 3 * ny] = (viscosity[j, i] + viscosity[j + 1, i] + viscosity[j, i + 1] + viscosity[
@@ -249,10 +247,10 @@ for time_step in range(1, 2, 1):  # time step
                 else:
 
                     L[ivy, ivy] = -viscosity[j, i + 1] / (dx * dx) - viscosity[j, i] / (dx * dx) - (
-                                viscosity[j, i] + viscosity[j + 1, i] + viscosity[j, i + 1] + viscosity[j + 1, i + 1]) / (
-                                              2 * dy * dy) - (
-                                              viscosity[j, i] + viscosity[j - 1, i] + viscosity[j, i + 1] + viscosity[
-                                          j - 1, i + 1]) / (2 * dy * dy)
+                            viscosity[j, i] + viscosity[j + 1, i] + viscosity[j, i + 1] + viscosity[j + 1, i + 1]) / (
+                                          2 * dy * dy) - (
+                                          viscosity[j, i] + viscosity[j - 1, i] + viscosity[j, i + 1] + viscosity[
+                                      j - 1, i + 1]) / (2 * dy * dy)
                     L[ivy, ivy + 3] = (viscosity[j, i] + viscosity[j, i + 1] + viscosity[j + 1, i] + viscosity[
                         j + 1, i + 1]) / (2 * dy * dy)
                     L[ivy, ivy - 3] = (viscosity[j, i] + viscosity[j, i + 1] + viscosity[j - 1, i] + viscosity[
@@ -289,7 +287,6 @@ for time_step in range(1, 2, 1):  # time step
                     R[ip, 0] = 0
 
         XX = np.linalg.solve(L, R)
-        print('  Computing: 50%')
 
         P0 = np.zeros((ny, nx))
         vx0 = np.zeros((ny, nx))
@@ -497,7 +494,7 @@ for time_step in range(1, 2, 1):  # time step
 
         Vx = vx1 * Scale
         Vy = vy1 * Scale
-        V = (Vx ** 2 +Vy ** 2) ** 0.5
+        V = (Vx ** 2 + Vy ** 2) ** 0.5
 
         x1 = np.arange(0.5 * dx, xlen, dx)
         y1 = np.arange(0.5 * dy, ylen, dy)
@@ -511,27 +508,29 @@ for time_step in range(1, 2, 1):  # time step
         vy1 = vy10[0:ny:m, 0:nx:m]
         del vx10, vy10
 
-        Stress_xx_d = np.zeros((ny-1, nx-1))
-        Stress_yy_d = np.zeros((ny-1, nx-1))
-        Stress_xy = np.zeros((ny-1, nx-1))
-        Stress_yx = np.zeros((ny-1, nx-1))
-        Strain_xx_d = np.zeros((ny-1, nx-1))
-        Strain_yy_d = np.zeros((ny-1, nx-1))
-        Strain_xy = np.zeros((ny-1, nx-1))
-        Strain_yx = np.zeros((ny-1, nx-1))
-        Strain_II = np.zeros((ny-1, nx-1))
-        for i in range(nx-2):
-            for j in range(ny-2):
+        Stress_xx_d = np.zeros((ny - 1, nx - 1))
+        Stress_yy_d = np.zeros((ny - 1, nx - 1))
+        Stress_xy = np.zeros((ny - 1, nx - 1))
+        Stress_yx = np.zeros((ny - 1, nx - 1))
+        Strain_xx_d = np.zeros((ny - 1, nx - 1))
+        Strain_yy_d = np.zeros((ny - 1, nx - 1))
+        Strain_xy = np.zeros((ny - 1, nx - 1))
+        Strain_yx = np.zeros((ny - 1, nx - 1))
+        Strain_II = np.zeros((ny - 1, nx - 1))
+        for i in range(nx - 2):
+            for j in range(ny - 2):
                 # stress / 6 = deviatoric stress - P * dij ; Thus, stress_xx_d[j, i] = stress_xx[j, i] + Pressure[j, i]
                 # strain / E = deviatoric strain ; Thus, stress_xy[j, i] = stress_xy_d[j, i]
                 Strain_xx_d[j, i] = (vx1[j, i + 1] - vx1[j, i]) / dx
                 Stress_xx_d[j, i] = 2 * 0.25 * (
-                            viscosity[j, i] + viscosity[j, i + 1] + viscosity[j + 1, i] + viscosity[j + 1, i + 1]) * Strain_xx_d[
+                        viscosity[j, i] + viscosity[j, i + 1] + viscosity[j + 1, i] + viscosity[j + 1, i + 1]) * \
+                                    Strain_xx_d[
                                         j, i]
 
                 Strain_yy_d[j, i] = (vy1[j + 1, i] - vy1[j, i]) / dy
                 Stress_yy_d[j, i] = 2 * 0.25 * (
-                            viscosity[j, i] + viscosity[j, i + 1] + viscosity[j + 1, i] + viscosity[j + 1, i + 1]) * Strain_yy_d[
+                        viscosity[j, i] + viscosity[j, i + 1] + viscosity[j + 1, i] + viscosity[j + 1, i + 1]) * \
+                                    Strain_yy_d[
                                         j, i]
 
                 Strain_xy[j, i] = ((vy1[j, i] - vy1[j, i - 1]) / dx + (vx1[j, i] - vx1[j - 1, i]) / dy) / 2
@@ -541,42 +540,52 @@ for time_step in range(1, 2, 1):  # time step
                 Strain_yx[j, i] = Strain_xy[j, i]
                 Stress_yx[j, i] = Stress_xy[j, i]
 
-                Strain_II[j, i] = (0.5 * (Strain_xx_d[j, i] **2 + Strain_yy_d[j, i] **2 + Strain_xy[j, i] **2 + Strain_yx[j, i] **2)) ** 0.5
+                Strain_II[j, i] = (0.5 * (
+                            Strain_xx_d[j, i] ** 2 + Strain_yy_d[j, i] ** 2 + Strain_xy[j, i] ** 2 + Strain_yx[
+                        j, i] ** 2)) ** 0.5
 
         ## vx1,vy1,viscosity,Density / nodes of mesh
 
         fig_out = plt.figure(figsize=(12, 12))
         plt.suptitle('Stress', fontsize=16, fontweight='bold')
-        ax = fig_out.add_subplot(221); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+        ax = fig_out.add_subplot(221);
+        ax.axis([0, xlen / 1000, 0, ylen / 1000])
         Stokes_pre.Plot_fig(xx, yy, Stress_xx_d, ax, 'Stress_xx_d', 'Stress_xx_d / Pa', 2)
-        ax = fig_out.add_subplot(222); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+        ax = fig_out.add_subplot(222);
+        ax.axis([0, xlen / 1000, 0, ylen / 1000])
         Stokes_pre.Plot_fig(xx, yy, Stress_yy_d, ax, 'Stress_yy_d', 'Stress_yy_d / Pa', 2)
-        ax = fig_out.add_subplot(223); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+        ax = fig_out.add_subplot(223);
+        ax.axis([0, xlen / 1000, 0, ylen / 1000])
         Stokes_pre.Plot_fig(xx, yy, Stress_xy, ax, 'Stress_xy', 'Stress_xy / Pa', 2)
-        ax = fig_out.add_subplot(224); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+        ax = fig_out.add_subplot(224);
+        ax.axis([0, xlen / 1000, 0, ylen / 1000])
         Stokes_pre.Plot_fig(xx, yy, Stress_yx, ax, 'Stress_yx', 'Stress_yx / Pa', 2)
         plt.close()
         fig_out = plt.figure(figsize=(12, 12))
 
         plt.suptitle('Strain_II', fontsize=16, fontweight='bold')
-        ax = fig_out.add_subplot(221); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+        ax = fig_out.add_subplot(221);
+        ax.axis([0, xlen / 1000, 0, ylen / 1000])
         Stokes_pre.Plot_fig(xm, ym, Strain_II_m_pre, ax, 'Strain_II before', 'Strain / $\mathregular{s^-1}$', 2)
 
         points = np.column_stack((xx.flatten(), yy.flatten()))
         Strain_II_m_new = griddata(points, Strain_II.flatten(), (xm, ym), method='nearest')
         for im in range(nx_m * (nx - 1)):
             for jm in range(ny_m * (ny - 1)):
-                if Strain_II_m_new[jm, im] == 0:              # sticky air
+                if Strain_II_m_new[jm, im] == 0:  # sticky air
                     Strain_II_m_new[jm, im] = 1e-18
         # Strain_II_m_new[np.isnan(Strain_II_m_new)] = 0
         # Strain_II_m_new[np.where(Strain_II_m_new == 0)] = 1e-18
-        ax = fig_out.add_subplot(222); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+        ax = fig_out.add_subplot(222);
+        ax.axis([0, xlen / 1000, 0, ylen / 1000])
         Stokes_pre.Plot_fig(xm, ym, Strain_II_m_new, ax, 'Strain_II after', 'Strain / $\mathregular{s^-1}$', 2)
 
-        ax = fig_out.add_subplot(223); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+        ax = fig_out.add_subplot(223);
+        ax.axis([0, xlen / 1000, 0, ylen / 1000])
         # plt.plot(Strain_II_m_new.flatten(), 'b.')
         # plt.plot(Strain_II_m_pre-Strain_II_m_new, 'y*')
-        Stokes_pre.Plot_fig(xm, ym, Strain_II_m_new - Strain_II_m_pre, ax, 'Strain_II after', 'Strain / $\mathregular{s^-1}$', 2)
+        Stokes_pre.Plot_fig(xm, ym, Strain_II_m_new - Strain_II_m_pre, ax, 'Strain_II after',
+                            'Strain / $\mathregular{s^-1}$', 2)
         np.save("Strain_II_m.npy", Strain_II_m_new)
 
         Strain_II_D = (Strain_II_m_new - Strain_II_m_pre) / Strain_II_m_pre
@@ -585,18 +594,22 @@ for time_step in range(1, 2, 1):  # time step
 
         ax = fig_out.add_subplot(224)
         plt.plot(Strain_II_D.flatten(), 'r.')
-        plt.savefig('/home/wentao/Videos/'+str(IterationNumber))
+        plt.savefig(str(IterationNumber))
         # plt.show()
 
         fig_out = plt.figure(figsize=(12, 12))
         plt.suptitle('Strain', fontsize=16, fontweight='bold')
-        ax = fig_out.add_subplot(221); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+        ax = fig_out.add_subplot(221);
+        ax.axis([0, xlen / 1000, 0, ylen / 1000])
         Stokes_pre.Plot_fig(xx, yy, Strain_xx_d, ax, 'Strain_xx_d', 'Strain / $\mathregular{s^-1}$', 2)
-        ax = fig_out.add_subplot(222); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+        ax = fig_out.add_subplot(222);
+        ax.axis([0, xlen / 1000, 0, ylen / 1000])
         Stokes_pre.Plot_fig(xx, yy, Strain_yy_d, ax, 'Strain_yy_d', 'Strain / $\mathregular{s^-1}$', 2)
-        ax = fig_out.add_subplot(223); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+        ax = fig_out.add_subplot(223);
+        ax.axis([0, xlen / 1000, 0, ylen / 1000])
         Stokes_pre.Plot_fig(xx, yy, Strain_xy, ax, 'Strain_xy', 'Strain / $\mathregular{s^-1}$', 2)
-        ax = fig_out.add_subplot(224); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+        ax = fig_out.add_subplot(224);
+        ax.axis([0, xlen / 1000, 0, ylen / 1000])
         Stokes_pre.Plot_fig(xx, yy, Strain_yx, ax, 'Strain_yx', 'Strain / $\mathregular{s^-1}$', 2)
 
         #
@@ -604,7 +617,7 @@ for time_step in range(1, 2, 1):  # time step
         plt.close()
         # viscosity /Plotting viscosity: vx1, vy1
 
-        Qkey = np.max(V) # Qkey = (np.max(Vx) ** 2 + np.max(Vy) ** 2) ** 0.5
+        Qkey = np.max(V)  # Qkey = (np.max(Vx) ** 2 + np.max(Vy) ** 2) ** 0.5
         fig_out = plt.figure(figsize=(12, 12))
         plt.suptitle('Viscosity', fontsize=16, fontweight='bold')
         # ax = fig_out.add_subplot(221); ax.axis([0, xlen / 1000, 0, ylen / 1000])
@@ -612,24 +625,30 @@ for time_step in range(1, 2, 1):  # time step
         # Q = plt.quiver(xx / 1000, yy / 1000, Vx, -1 * Vy, units='xy', color='red')
         # plt.quiverkey(Q, 0.8, -0.1, Qkey, str(Qkey) + Vlable, labelpos='E', color='red', coordinates='axes')
 
-        ax = fig_out.add_subplot(222); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+        ax = fig_out.add_subplot(222);
+        ax.axis([0, xlen / 1000, 0, ylen / 1000])
         Stokes_pre.Plot_fig(xx, yy, V, ax, 'V', 'V' + Vlable, 2)
-        # Stokes_pre.Plot_fig(xm, ym, np.log10(viscosity_m), ax, 'Viscosity', 'log$_{10}$η ($Pa·s$)', 2)
+
         Q = plt.quiver(xx / 1000, yy / 1000, Vx, -1 * Vy, units='xy', color='red')
         plt.quiverkey(Q, 0.8, -0.1, Qkey, str(Qkey) + Vlable, labelpos='E', color='red', coordinates='axes')
 
-        ax = fig_out.add_subplot(223); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+        ax = fig_out.add_subplot(223);
+        ax.axis([0, xlen / 1000, 0, ylen / 1000])
         Stokes_pre.Plot_fig(xx, yy, Vx, ax, 'Vx', 'Vx' + Vlable, 2)
         Q = plt.quiver(xx / 1000, yy / 1000, Vx, -1 * Vy, units='xy', color='red')
         plt.quiverkey(Q, 0.8, -0.1, Qkey, str(Qkey) + Vlable, labelpos='E', color='red', coordinates='axes')
 
-        ax = fig_out.add_subplot(224); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+        ax = fig_out.add_subplot(224);
+        ax.axis([0, xlen / 1000, 0, ylen / 1000])
         Stokes_pre.Plot_fig(xx, yy, Vy, ax, 'Vy', 'Vy' + Vlable, 2)
         Q = plt.quiver(xx / 1000, yy / 1000, Vx, -1 * Vy, units='xy', color='red')
         plt.quiverkey(Q, 0.8, -0.1, Qkey, str(Qkey) + Vlable, labelpos='E', color='red', coordinates='axes')
 
         plt.close()
 
+        np.savez(Model_result + '_TimeStep=' + str(TimeStep) + '_IterationNumber=' + str(IterationNumber),
+                 vx1=vx1, vy1=vy1, IterationNumber=IterationNumber, Deviation=Deviation, rock=rock, density=density,
+                 viscosity=viscosity, kk=kk, TT=TT)
         # points = np.column_stack((xx.flatten(), yy.flatten()))
         # Strain_II_m = griddata(points, Strain_II.flatten(), (xm, ym), method='nearest')
         # for im in range(nx_m * (nx - 1)):
@@ -655,9 +674,16 @@ for time_step in range(1, 2, 1):  # time step
         # Stokes_pre.Plot_fig(xm, ym, Strain_II_D, ax, 'Strain_II_D', 'Strain / $\mathregular{s^-1}$', 2)
         # # plt.savefig('Time = ' + str(time_eta_cal) + '.png')
 
-
 # plt.show()
-plt.figure()
-plt.plot(Deviation, '*')
-plt.show()
-plt.savefig('/home/wentao/Videos/Deviation.png')
+
+outfile = 'Model'
+os.system('rm -rf ' + outfile)
+os.system('mkdir ' + outfile)
+os.system('mv *.npz ' + outfile)
+os.system('mv *.npy ' + outfile)
+os.system('mv *.png ' + outfile)
+
+# plt.figure()
+# plt.plot(Deviation, '*')
+# plt.show()
+# plt.savefig('Deviation.png')
