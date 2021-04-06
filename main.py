@@ -647,8 +647,9 @@ for TimeStep in range(MaxTimeStep):  # time step
         plt.close()
 
         np.savez(Model_result + '_TimeStep=' + str(TimeStep) + '_IterationNumber=' + str(IterationNumber),
-                 vx1=vx1, vy1=vy1, IterationNumber=IterationNumber, Deviation=Deviation, rock=rock, density=density,
-                 viscosity=viscosity, kk=kk, TT=TT)
+                 vx1=vx1, vy1=vy1, IterationNumber=IterationNumber, Deviation=Deviation,
+                 rock=rock, density=density, viscosity=viscosity, kk=kk, TT=TT,
+                 rock_m=rock_m, density_m=density_m, viscosity_m=viscosity_m, mkk=mkk, mTT=mTT)
         # points = np.column_stack((xx.flatten(), yy.flatten()))
         # Strain_II_m = griddata(points, Strain_II.flatten(), (xm, ym), method='nearest')
         # for im in range(nx_m * (nx - 1)):

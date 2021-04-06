@@ -4,13 +4,14 @@ from scipy.interpolate import griddata
 
 
 def main():
+    OutFile = 'Model/Vis_'
     Model_inf = 'Model/Model_inf.npz'
     Model_result = 'Model/Model_result_TimeStep=0_IterationNumber=3.npz'
-    Plot_All(Model_inf, Model_result)
+    Plot_All(Model_inf, Model_result, OutFile)
     plt.show()
 
 
-def Plot_All(inf, result):
+def Plot_All(inf, result, OutFile):
     Strain_II_m_pre = np.load("Model/Strain_II_m.npy")
     Model_inf = np.load(inf)
     input = Model_inf['input']
@@ -24,6 +25,8 @@ def Plot_All(inf, result):
     Model_result = np.load(result)
     vx1, vy1, Deviation, IterationNumber = \
         Model_result['vx1'], Model_result['vy1'], Model_result['Deviation'], Model_result['IterationNumber']
+    rock_m, density_m, viscosity_m, mkk, mTT = \
+        Model_result['rock_m'], Model_result['density_m'], Model_result['viscosity_m'], Model_result['mkk'], Model_result['mTT']
     rock, density, viscosity, kk, TT = \
         Model_result['rock'], Model_result['density'], Model_result['viscosity'], Model_result['kk'], Model_result['TT']
 
@@ -87,6 +90,28 @@ def Plot_All(inf, result):
                     Strain_xx_d[j, i] ** 2 + Strain_yy_d[j, i] ** 2 + Strain_xy[j, i] ** 2 + Strain_yx[
                 j, i] ** 2)) ** 0.5
 
+    fig_out = plt.figure(figsize=(16, 12))
+    # meshes
+    ax = fig_out.add_subplot(231); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+    Plot_fig(xx, yy, 'No', ax, 'Grid: ' + str(nx-1) + ' × ' + str(ny-1), None, 1)
+
+    ax = fig_out.add_subplot(232); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+    Plot_fig(xm, ym, density_m, ax, 'Density', 'ρ (kg/$\mathregular{m^3}$)', 2)
+
+    ax = fig_out.add_subplot(233); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+    Plot_fig(xm, ym, np.log10(viscosity_m), ax, 'Viscosity', 'log$_{10}$η ($Pa·s$)', 2)
+
+    ax = fig_out.add_subplot(234); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+    Plot_fig(xm, ym, rock_m, ax, 'Type of rock', 'Number', 2)
+
+    ax = fig_out.add_subplot(235); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+    Plot_fig(xm, ym, mTT, ax, 'Temperture', 'Temperture ($deg$)', 2)
+
+    ax = fig_out.add_subplot(236); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+    Plot_fig(xm, ym, mkk, ax, 'Thermal conductivity', 'k ($W/(m·K)$)', 2)
+    plt.savefig(OutFile + 'marker_IterationNumber=' + str(IterationNumber))
+
+
     ################ vx1,vy1,viscosity,Density / nodes of mesh
 
     fig_out = plt.figure(figsize=(12, 12))
@@ -103,6 +128,7 @@ def Plot_All(inf, result):
     ax = fig_out.add_subplot(224);
     ax.axis([0, xlen / 1000, 0, ylen / 1000])
     Plot_fig(xx, yy, Stress_yx, ax, 'Stress_yx', 'Stress_yx / Pa', 2)
+    plt.savefig(OutFile + 'Stress_IterationNumber=' + str(IterationNumber))
 
     ################ Strain_II
     fig_out = plt.figure(figsize=(12, 12))
@@ -137,6 +163,7 @@ def Plot_All(inf, result):
     ax = fig_out.add_subplot(224)
     plt.plot(Strain_II_D.flatten(), 'r.')
     # plt.savefig('/home/ictja/Videos/' + str(IterationNumber))
+    plt.savefig(OutFile + 'Strain_II_IterationNumber=' + str(IterationNumber))
 
     #  Strain_xx, xy, yx, yy
     fig_out = plt.figure(figsize=(12, 12))
@@ -153,6 +180,8 @@ def Plot_All(inf, result):
     ax = fig_out.add_subplot(224);
     ax.axis([0, xlen / 1000, 0, ylen / 1000])
     Plot_fig(xx, yy, Strain_yx, ax, 'Strain_yx', 'Strain / $\mathregular{s^-1}$', 2)
+
+    plt.savefig(OutFile + 'Strain_IterationNumber=' + str(IterationNumber))
 
     # viscosity /Plotting viscosity: vx1, vy1
     Qkey = np.max(V)  # Qkey = (np.max(Vx) ** 2 + np.max(Vy) ** 2) ** 0.5
@@ -181,7 +210,7 @@ def Plot_All(inf, result):
     Plot_fig(xx, yy, Vy, ax, 'Vy', 'Vy' + Vlable, 2)
     Q = plt.quiver(xx / 1000, yy / 1000, Vx, -1 * Vy, units='xy', color='red')
     plt.quiverkey(Q, 0.8, -0.1, Qkey, str(Qkey) + Vlable, labelpos='E', color='red', coordinates='axes')
-
+    plt.savefig(OutFile + 'velocity_IterationNumber=' + str(IterationNumber))
 
 
 def Plot_fig(x, y, z, ax, title, label, type):
