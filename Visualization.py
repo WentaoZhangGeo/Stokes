@@ -8,7 +8,7 @@ def main():
     Model_inf = 'Model/Model_inf.npz'
     Model_result = 'Model/Model_result_TimeStep=0_IterationNumber=3.npz'
     Plot_All(Model_inf, Model_result, OutFile)
-    plt.show()
+    # plt.show()
 
 
 def Plot_All(inf, result, OutFile):
