@@ -4,8 +4,11 @@ from scipy.interpolate import griddata
 
 def main(input, xlen, ylen, nx, ny ,nx_m, ny_m, LitMod_file):
     fig_switch = 0  # Check out the fig, 1 is off, other is on
-    PA = 200000 # vertical_slice
+    PA = 200000  # vertical_slice
     PB = 600000  # vertical_slice
+
+    Airnpz = np.load("Air.npz")
+    AirThickness, AirDensity, AirViscosity = Airnpz['AirThickness'], Airnpz['AirDensity'], Airnpz['AirViscosity']
 
     dx = xlen / (nx - 1)
     dy = ylen / (ny - 1)
@@ -15,19 +18,19 @@ def main(input, xlen, ylen, nx, ny ,nx_m, ny_m, LitMod_file):
     # define the centre of each mesh, mesh unit, m
     # x=[0.5dx 1.5dx 2.5dx ... (nx-0.5)dx], y=[...], nodes
     x1 = np.arange(0.5 * dx, xlen, dx)
-    y1 = np.arange(0.5 * dy, ylen, dy)
+    y1 = np.arange(0.5 * dy, ylen, dy) - AirThickness
     xx, yy = np.meshgrid(x1, y1)
 
     # define the markers
     # xm=[0.5dx_m 1.5dx_m ... (all-0.5)dx_m], y=[...], markers
     x2 = np.arange(0.5 * dx_m, xlen, dx_m)
-    y2 = np.arange(0.5 * dy_m, ylen, dy_m)
+    y2 = np.arange(0.5 * dy_m, ylen, dy_m) - AirThickness
     xm, ym = np.meshgrid(x2, y2)
 
     # define the nodes, mesh unit, m
     # x=[0 dx 2dx ... (nx-1)dx], y=[...], nodes
     x3 = np.arange(0, xlen + dx, dx)
-    y3 = np.arange(0, ylen + dy, dy)
+    y3 = np.arange(0, ylen + dy, dy) - AirThickness
     x_n, y_n = np.meshgrid(x3, y3)
     del x1, y1, x2, y2, x3, y3
 
@@ -120,6 +123,9 @@ def input_parameters_LitMod(nx, nx_m, ny, ny_m, xm, ym, LitMod_file):
     mkk         = np.ones((ny_m * (ny - 1), nx_m * (nx - 1)))
     mTT         = np.zeros((ny_m * (ny - 1), nx_m * (nx - 1)))
 
+    Airnpz = np.load("Air.npz")
+    AirThickness, AirDensity, AirViscosity = Airnpz['AirThickness'], Airnpz['AirDensity'], Airnpz['AirViscosity']
+
     file = LitMod_file + '/dens_node2.dat'
     data = np.loadtxt(file)
     points = np.column_stack((data[:, 0], -1 * data[:, 1])) * 1000
@@ -141,9 +147,12 @@ def input_parameters_LitMod(nx, nx_m, ny, ny_m, xm, ym, LitMod_file):
     Strain_II = np.load("Strain_II_m.npy")
     for im in range(nx_m * (nx - 1)):
         for jm in range(ny_m * (ny - 1)):
-            if rock_m[jm, im] < 0:              # sticky air
+            if rock_m[jm, im] < 0 or ym[jm, im] < 0:              # sticky air
                 rock_m[jm, im] = 0
-                viscosity_m[jm, im] = 1e18
+                density_m[jm, im] = AirDensity
+                viscosity_m[jm, im] = AirViscosity
+                mTT[jm, im] = np.min(data[:, 2])
+                mkk[jm, im] = 1
             elif 0 <= rock_m[jm, im] <= 10:     # sediment & crust
                 rock_m[jm, im] = 1
                 viscosity_m[jm, im] = 1e20

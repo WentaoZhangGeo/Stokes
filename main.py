@@ -13,6 +13,11 @@ from scipy.interpolate import griddata
 import Stokes_pre
 import os
 
+# class Air:
+#     Thickness = 20  #
+#     Density = 1000
+#     Viscosity = 1e18
+
 start = time.time()
 print('Start time: %s ' % time.ctime(start))
 Model_inf = 'Model_inf'
@@ -24,10 +29,18 @@ Model_result = 'Model_result'
 
 input = 3  # input:        the shape of model
 LitMod_file = 'Model_in'
-xlen, ylen = 1070000.0, 400000.0  # m   Sticky air: 20 km
+xlen, ylen = 1070000.0, 400000.0  # m
+AirThickness = 20000.0  # m   Sticky air: 20 km
+if input != 3:
+    AirThickness = 0
+AirDensity = 1000.0  # kg/m3
+AirViscosity = 1e18  # Pa s
+
+ylen = ylen + AirThickness
+np.savez('Air.npz', AirThickness=AirThickness, AirDensity=AirDensity, AirViscosity=AirViscosity)
 
 # define the mesh, mesh unit, m
-nx, ny = 51, 21
+nx, ny = 51, 41
 
 # define the markers
 nx_m, ny_m = 4, 4
@@ -494,11 +507,6 @@ for TimeStep in range(MaxTimeStep):  # time step
         Vx = vx1 * Scale
         Vy = vy1 * Scale
         V = (Vx ** 2 + Vy ** 2) ** 0.5
-
-        x1 = np.arange(0.5 * dx, xlen, dx)
-        y1 = np.arange(0.5 * dy, ylen, dy)
-        xx, yy = np.meshgrid(x1, y1)
-        del x1, y1
 
         m = 1
         vx10, vy10 = vx1, vy1

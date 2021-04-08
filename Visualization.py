@@ -8,10 +8,14 @@ def main():
     Model_inf = 'Model/Model_inf.npz'
     Model_result = 'Model/Model_result_TimeStep=0_IterationNumber=1.npz'
     Plot_All(Model_inf, Model_result, OutFile)
-    plt.show()
+    # plt.show()
 
 
 def Plot_All(inf, result, OutFile):
+    global xlen, ylen
+    Px = 200000  # vertical_slice
+    Py = 200000  # horizontal_slice
+
     Strain_II_m_pre = np.load("Model/Strain_II_m.npy")
     Model_inf = np.load(inf)
     input = Model_inf['input']
@@ -41,11 +45,6 @@ def Plot_All(inf, result, OutFile):
     Vx = vx1 * Scale
     Vy = vy1 * Scale
     V = (Vx ** 2 + Vy ** 2) ** 0.5
-
-    x1 = np.arange(0.5 * dx, xlen, dx)
-    y1 = np.arange(0.5 * dy, ylen, dy)
-    xx, yy = np.meshgrid(x1, y1)
-    del x1, y1
 
     m = 1
     vx10, vy10 = vx1, vy1
@@ -90,16 +89,53 @@ def Plot_All(inf, result, OutFile):
                     Strain_xx_d[j, i] ** 2 + Strain_yy_d[j, i] ** 2 + Strain_xy[j, i] ** 2 + Strain_yx[
                 j, i] ** 2)) ** 0.5
 
+    # vertical_slice
+    im_find = abs(xm[1, :] - Px)
+    imPx = np.argmin(im_find)
+    im = imPx
+    legend = 'x=' + str(xm[1, imPx] / 1000) + ' km'
+
+    fig_out = plt.figure(figsize=(16, 10))
+    ax = fig_out.add_subplot(141)
+    Plot_Slip(ym[:, im], density_m[:, im], ax, 'density profile', '', legend)
+    ax = fig_out.add_subplot(142)
+    Plot_Slip(ym[:, im], np.log10(viscosity_m[:, im]), ax, 'viscosity profile', 'log$_{10}$Viscosity (Pa s)', legend)
+    ax = fig_out.add_subplot(143)
+    Plot_Slip(ym[:, im], rock_m[:, im], ax, 'Type profile', '', legend)
+    ax = fig_out.add_subplot(144)
+    Plot_Slip(ym[:, im], mTT[:, im], ax, 'Temperature profile', '', legend)
+    plt.savefig(OutFile + 'Px=' + str(int(Px/1000)) + 'km')
+
+    # horizontal_slice
+    jm_find = abs(ym[:, 1] - Py)
+    jmPy = np.argmin(jm_find)
+    jm = jmPy
+    legend = 'y=' + str(xm[1, jmPy] / 1000) + ' km'
+
+    fig_out = plt.figure(figsize=(16, 10))
+    ax = fig_out.add_subplot(411)
+    Plot_SlipY(xm[jm, :], density_m[jm, :], ax, 'density profile', 'Density', legend)
+    ax = fig_out.add_subplot(412)
+    Plot_SlipY(xm[jm, :], np.log10(viscosity_m[jm, :]), ax, 'viscosity profile', 'log$_{10}$Viscosity (Pa s)', legend)
+    ax = fig_out.add_subplot(413)
+    Plot_SlipY(xm[jm, :], rock_m[jm, :], ax, 'Type profile', 'Type of rock', legend)
+    ax = fig_out.add_subplot(414)
+    Plot_SlipY(xm[jm, :], mTT[jm, :], ax, 'Temperature profile', 'Temperature', legend)
+    plt.savefig(OutFile + 'Py=' + str(int(Py/1000)) + 'km')
+
     fig_out = plt.figure(figsize=(16, 12))
     # meshes
     ax = fig_out.add_subplot(231); ax.axis([0, xlen / 1000, 0, ylen / 1000])
-    Plot_fig(xx, yy, 'No', ax, 'Grid: ' + str(nx-1) + ' × ' + str(ny-1), None, 1)
+    Plot_fig(xx, yy, 'No', ax, 'Grid: ' + str(nx-1) + ' ' + str(ny-1), None, 1)
+    Plot_fig(xm, ym, np.log10(viscosity_m), ax, 'Viscosity', 'log$_{10}$eta ($Pa s$)', 2)
+
 
     ax = fig_out.add_subplot(232); ax.axis([0, xlen / 1000, 0, ylen / 1000])
-    Plot_fig(xm, ym, density_m, ax, 'Density', 'ρ (kg/$\mathregular{m^3}$)', 2)
+    Plot_fig(xm, ym, density_m, ax, 'Density', 'Density (kg/$\mathregular{m^3}$)', 2)
+    ax.plot(xm[:, im], ym[:, im], 'ro')
 
     ax = fig_out.add_subplot(233); ax.axis([0, xlen / 1000, 0, ylen / 1000])
-    Plot_fig(xm, ym, np.log10(viscosity_m), ax, 'Viscosity', 'log$_{10}$η ($Pa·s$)', 2)
+    Plot_fig(xm, ym, np.log10(viscosity_m), ax, 'Viscosity', 'log$_{10}$eta ($Pa s$)', 2)
 
     ax = fig_out.add_subplot(235); ax.axis([0, xlen / 1000, 0, ylen / 1000])
     Plot_fig(xm, ym, rock_m, ax, 'Type of rock', 'Number', 2)
@@ -108,8 +144,8 @@ def Plot_All(inf, result, OutFile):
     Plot_fig(xm, ym, mTT, ax, 'Temperture', 'Temperture ($deg$)', 2)
 
     # ax = fig_out.add_subplot(236); ax.axis([0, xlen / 1000, 0, ylen / 1000])
-    # Plot_fig(xm, ym, mkk, ax, 'Thermal conductivity', 'k ($W/(m·K)$)', 2)
-    # plt.savefig(OutFile + 'marker_IterationNumber=' + str(IterationNumber))
+    # Plot_fig(xm, ym, mkk, ax, 'Thermal conductivity', 'k ($W/(m K)$)', 2)
+    plt.savefig(OutFile + 'model_setting')
 
 
     ################ vx1,vy1,viscosity,Density / nodes of mesh
@@ -195,7 +231,7 @@ def Plot_All(inf, result, OutFile):
     ax = fig_out.add_subplot(222);
     ax.axis([0, xlen / 1000, 0, ylen / 1000])
     Plot_fig(xx, yy, V, ax, 'V', 'V' + Vlable, 2)
-    # Plot_fig(xm, ym, np.log10(viscosity_m), ax, 'Viscosity', 'log$_{10}$η ($Pa·s$)', 2)
+    # Plot_fig(xm, ym, np.log10(viscosity_m), ax, 'Viscosity', 'log$_{10}$eta ($Pa s$)', 2)
     Q = plt.quiver(xx / 1000, yy / 1000, Vx, -1 * Vy, units='xy', color='red')
     plt.quiverkey(Q, 0.8, -0.1, Qkey, str(Qkey) + Vlable, labelpos='E', color='red', coordinates='axes')
 
@@ -213,11 +249,15 @@ def Plot_All(inf, result, OutFile):
     plt.savefig(OutFile + 'velocity_IterationNumber=' + str(IterationNumber))
 
 
+
 def Plot_fig(x, y, z, ax, title, label, type):
+    # ax.axis([0, xlen / 1000, 0 - 40, ylen / 1000 - 00])
+    ax.axis([0, xlen / 1000, 0 - 40, ylen / 1000 - 00])
     if type == 1:
         ax.plot(x / 1000, y / 1000, 'g+', label="mesh")
     if type == 2:
-        plt.pcolor(x / 1000, y / 1000, z[:-1, :-1], cmap='Spectral_r')  # Spectral_r
+        # plt.pcolor(x / 1000, y / 1000, z[:-1, :-1], cmap='Spectral_r')  # Spectral_r
+        plt.pcolor(x / 1000, y / 1000, z, cmap='Spectral_r')  # Spectral_r
     # if type == 3:
     #     ax.plot(x / 1000, y / 1000, 'g+', label="mesh")
     ax.set_title(title)
@@ -236,6 +276,15 @@ def Plot_Slip(y, f, ax, title, xlabel, legend):
     ax.set_title(title)
     ax.set_xlabel(xlabel)
     ax.set_ylabel('Depth ($km$)')
+    ax.grid(True, linestyle='dotted', linewidth=0.5)
+    ax.invert_yaxis()
+
+def Plot_SlipY(x, f, ax, title, ylabel, legend):
+    ax.plot(x / 1000,  f, '.', label=legend)  # Spectral_r
+    ax.legend(ncol=5)
+    # ax.set_title(title)
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel('Length ($km$)')
     ax.grid(True, linestyle='dotted', linewidth=0.5)
     ax.invert_yaxis()
 
