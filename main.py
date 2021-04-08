@@ -12,7 +12,6 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
 import Stokes_pre
 import os
-os.system('rm *.npz *.npy *.png')
 
 start = time.time()
 print('Start time: %s ' % time.ctime(start))
@@ -25,7 +24,7 @@ Model_result = 'Model_result'
 
 input = 3  # input:        the shape of model
 LitMod_file = 'Model_in'
-xlen, ylen = 1070000.0, 400000.0  # m
+xlen, ylen = 1070000.0, 400000.0  # m   Sticky air: 20 km
 
 # define the mesh, mesh unit, m
 nx, ny = 51, 21
@@ -56,7 +55,7 @@ print('  The number of markers in each mesh: %d, %d' % (nx_m, ny_m))
 print('Pre-Processing start')
 
 # Setting Initial Strain_II for calculating viscosity
-MaxIterationNumber = 3
+MaxIterationNumber = 1
 MaxTimeStep = 1
 Sii0 = 1e-15
 Deviation = []

@@ -6,7 +6,7 @@ from scipy.interpolate import griddata
 def main():
     OutFile = 'Model/Vis_'
     Model_inf = 'Model/Model_inf.npz'
-    Model_result = 'Model/Model_result_TimeStep=0_IterationNumber=3.npz'
+    Model_result = 'Model/Model_result_TimeStep=0_IterationNumber=1.npz'
     Plot_All(Model_inf, Model_result, OutFile)
     plt.show()
 
@@ -101,15 +101,15 @@ def Plot_All(inf, result, OutFile):
     ax = fig_out.add_subplot(233); ax.axis([0, xlen / 1000, 0, ylen / 1000])
     Plot_fig(xm, ym, np.log10(viscosity_m), ax, 'Viscosity', 'log$_{10}$η ($Pa·s$)', 2)
 
-    ax = fig_out.add_subplot(234); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+    ax = fig_out.add_subplot(235); ax.axis([0, xlen / 1000, 0, ylen / 1000])
     Plot_fig(xm, ym, rock_m, ax, 'Type of rock', 'Number', 2)
 
-    ax = fig_out.add_subplot(235); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+    ax = fig_out.add_subplot(236); ax.axis([0, xlen / 1000, 0, ylen / 1000])
     Plot_fig(xm, ym, mTT, ax, 'Temperture', 'Temperture ($deg$)', 2)
 
-    ax = fig_out.add_subplot(236); ax.axis([0, xlen / 1000, 0, ylen / 1000])
-    Plot_fig(xm, ym, mkk, ax, 'Thermal conductivity', 'k ($W/(m·K)$)', 2)
-    plt.savefig(OutFile + 'marker_IterationNumber=' + str(IterationNumber))
+    # ax = fig_out.add_subplot(236); ax.axis([0, xlen / 1000, 0, ylen / 1000])
+    # Plot_fig(xm, ym, mkk, ax, 'Thermal conductivity', 'k ($W/(m·K)$)', 2)
+    # plt.savefig(OutFile + 'marker_IterationNumber=' + str(IterationNumber))
 
 
     ################ vx1,vy1,viscosity,Density / nodes of mesh
