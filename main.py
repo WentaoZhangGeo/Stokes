@@ -10,8 +10,9 @@ import numpy as np
 import time
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
-import Stokes_pre
 import os
+import Stokes_pre
+import Visualization as Vis
 
 # class Air:
 #     Thickness = 20  #
@@ -30,7 +31,7 @@ Model_result = 'Model_result'
 input = 3  # input:        the shape of model
 LitMod_file = 'Model_in'
 xlen, ylen = 1070000.0, 400000.0  # m
-AirThickness = 20000.0  # m   Sticky air: 20 km
+AirThickness = 20000  # m   Sticky air: 20 km
 if input != 3:
     AirThickness = 0
 AirDensity = 1000.0  # kg/m3
@@ -181,7 +182,7 @@ for TimeStep in range(MaxTimeStep):  # time step
 
         gx = 0
         gy = 9.8
-        Pscale = viscosity[0, 0] / (dx / 2 + dy / 2)
+        Pscale = viscosity.max() / (dx / 2 + dy / 2)
 
         for i in range(nx):
             for j in range(ny):
@@ -654,7 +655,7 @@ for TimeStep in range(MaxTimeStep):  # time step
         plt.close()
 
         np.savez(Model_result + '_TimeStep=' + str(TimeStep) + '_IterationNumber=' + str(IterationNumber),
-                 vx1=vx1, vy1=vy1, IterationNumber=IterationNumber, Deviation=Deviation,
+                 vx1=vx1, vy1=vy1, p1=p1, IterationNumber=IterationNumber, Deviation=Deviation,
                  rock=rock, density=density, viscosity=viscosity, kk=kk, TT=TT,
                  rock_m=rock_m, density_m=density_m, viscosity_m=viscosity_m, mkk=mkk, mTT=mTT)
         # points = np.column_stack((xx.flatten(), yy.flatten()))
@@ -691,6 +692,7 @@ os.system('mv *.npz ' + outfile)
 os.system('mv *.npy ' + outfile)
 os.system('mv *.png ' + outfile)
 
+Vis.main()
 # plt.figure()
 # plt.plot(Deviation, '*')
 # plt.show()

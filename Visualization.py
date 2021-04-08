@@ -27,8 +27,8 @@ def Plot_All(inf, result, OutFile):
         Model_inf['xx'], Model_inf['yy'], Model_inf['xm'], Model_inf['ym'], Model_inf['x_n'], Model_inf['y_n']
 
     Model_result = np.load(result)
-    vx1, vy1, Deviation, IterationNumber = \
-        Model_result['vx1'], Model_result['vy1'], Model_result['Deviation'], Model_result['IterationNumber']
+    vx1, vy1, p1, Deviation, IterationNumber = \
+        Model_result['vx1'], Model_result['vy1'], Model_result['p1'], Model_result['Deviation'], Model_result['IterationNumber']
     rock_m, density_m, viscosity_m, mkk, mTT = \
         Model_result['rock_m'], Model_result['density_m'], Model_result['viscosity_m'], Model_result['mkk'], Model_result['mTT']
     rock, density, viscosity, kk, TT = \
@@ -57,6 +57,9 @@ def Plot_All(inf, result, OutFile):
     Stress_yy_d = np.zeros((ny - 1, nx - 1))
     Stress_xy = np.zeros((ny - 1, nx - 1))
     Stress_yx = np.zeros((ny - 1, nx - 1))
+    Stress_xx = np.zeros((ny - 1, nx - 1))
+    Stress_yy = np.zeros((ny - 1, nx - 1))
+
     Strain_xx_d = np.zeros((ny - 1, nx - 1))
     Strain_yy_d = np.zeros((ny - 1, nx - 1))
     Strain_xy = np.zeros((ny - 1, nx - 1))
@@ -88,6 +91,9 @@ def Plot_All(inf, result, OutFile):
             Strain_II[j, i] = (0.5 * (
                     Strain_xx_d[j, i] ** 2 + Strain_yy_d[j, i] ** 2 + Strain_xy[j, i] ** 2 + Strain_yx[
                 j, i] ** 2)) ** 0.5
+
+    Stress_xx = Stress_xx_d
+    Stress_yy = Stress_yy_d + p1
 
     # vertical_slice
     im_find = abs(xm[1, :] - Px)
@@ -121,7 +127,30 @@ def Plot_All(inf, result, OutFile):
     Plot_SlipY(xm[jm, :], rock_m[jm, :], ax, 'Type profile', 'Type of rock', legend)
     ax = fig_out.add_subplot(414)
     Plot_SlipY(xm[jm, :], mTT[jm, :], ax, 'Temperature profile', 'Temperature', legend)
-    plt.savefig(OutFile + 'Py=' + str(int(Py/1000)) + 'km')
+    plt.savefig(OutFile + 'Py=' + str(int(Py / 1000)) + 'km')
+
+    ## Surface
+    points = np.column_stack((xx.flatten(), yy.flatten()))
+    Stress_yySurface = griddata(points, Stress_yy.flatten(), (xx[1, :], 0), method='linear')
+    # points = np.column_stack((xx.flatten(), yy.flatten()))
+    # Strain_II_m_new = griddata(points, Strain_II.flatten(), (xm, ym), method='nearest')
+    topo = - Stress_yySurface/ (2400 - 1000) / 9.8
+    fig_out = plt.figure(figsize=(16, 10))
+    ax = fig_out.add_subplot(411)
+    plt.plot(xx[1, :] / 1000, Stress_yy[0, :], 'b')
+    plt.plot(xx[1, :] / 1000, Stress_yy[1, :], 'r')
+    Plot_topo(ax, 'Stress_yy[ ] (Pa)')
+    ax = fig_out.add_subplot(412)
+    plt.plot(xx[1, :] / 1000, Stress_yySurface)
+    Plot_topo(ax, 'Stress_yy (Pa)')
+    ax = fig_out.add_subplot(413)
+    plt.plot(xx[1, :] / 1000, topo)
+    Plot_topo(ax, 'Topo (m)')
+    ax = fig_out.add_subplot(414)
+    # plt.plot(yy[:, 1] / 1000, '*')
+    print(yy[:, 1])
+    Plot_topo(ax, 'yy (m)')
+    plt.savefig(OutFile + 'Surface')
 
     fig_out = plt.figure(figsize=(16, 12))
     # meshes
@@ -165,6 +194,20 @@ def Plot_All(inf, result, OutFile):
     ax.axis([0, xlen / 1000, 0, ylen / 1000])
     Plot_fig(xx, yy, Stress_yx, ax, 'Stress_yx', 'Stress_yx / Pa', 2)
     plt.savefig(OutFile + 'Stress_IterationNumber=' + str(IterationNumber))
+
+    fig_out = plt.figure(figsize=(12, 12))
+    plt.suptitle('Pressure and Stress', fontsize=16, fontweight='bold')
+    ax = fig_out.add_subplot(221)
+    Plot_fig(xx, yy, Stress_xx_d, ax, 'Stress_xx_d', 'Stress_xx_d / Pa', 2)
+    ax = fig_out.add_subplot(222)
+    Plot_fig(xx, yy, Stress_yy_d, ax, 'Stress_yy_d', 'Stress_yy_d / Pa', 2)
+
+    ax = fig_out.add_subplot(223)
+    Plot_fig(xx, yy, p1, ax, 'Pressure/Pa', 'Pressure / Pa', 2)
+    ax = fig_out.add_subplot(224)
+    Plot_fig(xx, yy, Stress_yy, ax, 'Stress_yy/Pa', 'Stress_yy / Pa', 2)
+
+    plt.savefig(OutFile + 'Pressure_IterationNumber=' + str(IterationNumber))
 
     ################ Strain_II
     fig_out = plt.figure(figsize=(12, 12))
@@ -248,6 +291,9 @@ def Plot_All(inf, result, OutFile):
     plt.quiverkey(Q, 0.8, -0.1, Qkey, str(Qkey) + Vlable, labelpos='E', color='red', coordinates='axes')
     plt.savefig(OutFile + 'velocity_IterationNumber=' + str(IterationNumber))
 
+    plt.figure()
+    plt.plot(Deviation, '*')
+    plt.savefig(OutFile + 'Deviation.png')
 
 
 def Plot_fig(x, y, z, ax, title, label, type):
@@ -287,6 +333,15 @@ def Plot_SlipY(x, f, ax, title, ylabel, legend):
     ax.set_xlabel('Length ($km$)')
     ax.grid(True, linestyle='dotted', linewidth=0.5)
     ax.invert_yaxis()
+
+def Plot_topo(ax, ylabel):
+
+    # ax.legend(ncol=5)
+    # ax.set_title(title)
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel('Length ($km$)')
+    ax.grid(True, linestyle='dotted', linewidth=0.5)
+
 
 
 if __name__ == '__main__':
